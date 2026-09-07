@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Grilla.vcxproj" Id="db1ecdc3-86be-49c1-918f-c9c2141471e7" />
+</Solution>
