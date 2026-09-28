@@ -33,9 +33,25 @@ struct Vertex//!
 	GLfloat b;
 };
 //pintar lineas con bresenham
-void drawLine(int x0, int y0, int x1, int y1, std::vector<Vertex>& vertices, int columnas) {
+void drawLineH(int x0, int y0, int x1, int y1, std::vector<Vertex>& vertices, int columnas) {
+	int aux=0;
+	//
+	if(x0>x1){
+	aux=x0;
+	x0=x1;
+	x1=aux;
+	//
+	aux=y0;
+	y0=y1;
+	y1=aux;
+	}
+	//
 	int dx = x1 - x0;
 	int dy = y1 - y0;
+	//
+	int dir = (dy<0)?-1:1;
+	dy= dy*dir;
+	//
 	int D = 2 * dy - dx;
 	int y = y0;
 		for (int x = x0; x <= x1; x++)
@@ -50,33 +66,92 @@ void drawLine(int x0, int y0, int x1, int y1, std::vector<Vertex>& vertices, int
 			vertices[base + i].b = 0.235f;
 		}
 		// Bresenham
-		if (D > 0) {
-			y = y + 1;
+		if (D >= 0) {
+			y = y + dir;
 			D = D - 2 * dx;
 		}
 		D = D + 2 * dy;
 	}
 }
 
-/*void generarGrilla(int columnas, int filas, std::vector<Vertex>& lineVertices) {
-	// Líneas verticales
-	for (int columna = 0; columna <= columnas; columna++)
-	{
-		float x = -1.0f + 2.0f * columna / (float)columnas;
-
-		lineVertices.push_back({ x, -1.0f, 0.0f });
-		lineVertices.push_back({ x,  1.0f, 0.0f });
+void drawLineV(int x0, int y0, int x1, int y1, std::vector<Vertex>& vertices, int columnas) {
+	int aux = 0;
+	//
+	if (y0 > y1) {
+		aux = x0;
+		x0 = x1;
+		x1 = aux;
+		//
+		aux = y0;
+		y0 = y1;
+		y1 = aux;
 	}
-
-	// Líneas horizontales
-	for (int fila = 0; fila <= filas; fila++)
+	//
+	int dx = x1 - x0;
+	int dy = y1 - y0;
+	//
+	int dir = (dx < 0) ? -1 : 1;
+	dx = dx * dir;
+	//
+	int D = 2 * dx - dy;
+	int x = x0;
+	for (int y = y0; y <= y1; y++)
 	{
-		float y = -1.0f + 2.0f * fila / (float)filas;
-
-		lineVertices.push_back({ -1.0f, y, 0.0f });
-		lineVertices.push_back({ 1.0f, y, 0.0f });
+		// Pintar la celda (x,y)
+		int celda = y * columnas + x;
+		int base = celda * 4;
+		for (int i = 0; i < 4; i++)
+		{
+			vertices[base + i].r = 0.941f;
+			vertices[base + i].g = 0.941f;
+			vertices[base + i].b = 0.235f;
+		}
+		// Bresenham
+		if (D >= 0) {
+			x = x + dir;
+			D = D - 2 * dy;
+		}
+		D = D + 2 * dx;
 	}
-}*/
+}
+void putPixel(int x, int y,std::vector<Vertex>& vertices,int columnas){
+
+	int celda = y * columnas + x;
+	int base = celda * 4;
+
+	for (int i = 0; i < 4; i++)
+	{
+		vertices[base + i].r = 0.941f;
+		vertices[base + i].g = 0.941f;
+		vertices[base + i].b = 0.235f;
+	}
+}
+
+void drawCircle(int cx, int cy, int r, std::vector<Vertex>& vertices, int columnas) {
+	int x = 0, y = -r, D=-r;
+	while (x<-y) {
+		//
+		if (D > 0) {
+			y += 1;
+			D += 2 * (x + y) + 1;
+		}
+		else {
+			D += 2 * x + 1;
+		}
+			putPixel(cx + x, cy + y, vertices, columnas);
+			putPixel(cx + x, cy - y, vertices, columnas);
+			putPixel(cx - x, cy + y, vertices, columnas);
+			putPixel(cx - x, cy - y, vertices, columnas);
+			putPixel(cx + y, cy + x, vertices, columnas);
+			putPixel(cx - y, cy + x, vertices, columnas);
+			putPixel(cx + y, cy - x, vertices, columnas);
+			putPixel(cx - y, cy - x, vertices, columnas);
+			//
+			x += 1;
+		
+	}
+}
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
@@ -102,11 +177,11 @@ int main() {
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);//crea un objeto de opengl para se run vertex shader
-	glShaderSource(vertexShader,1,&vertexShaderSource,nullptr);
+	glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
 	glCompileShader(vertexShader);
 
 	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader,1,&fragmentShaderSource,nullptr);
+	glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
 	glCompileShader(fragmentShader);
 
 	GLuint shaderProgram = glCreateProgram();
@@ -156,8 +231,17 @@ int main() {
 			indices.push_back(base + 3);
 		}
 	}
-	int x0 = 7, y0 = 5, x1 = 30, y1 = 25;
-	drawLine(x0, y0, x1, y1, vertices, columnas);
+	int cx=20, cy=20, r=19;
+	
+	drawCircle(cx, cy, r, vertices, columnas);
+
+	int x0 = 20, y0 = 20, x1 = 10, y1 = 35;
+	int dx=x1-x0 , dy =y1-y0;
+	if (abs(dx) > abs(dy)) {
+		drawLineH(x0, y0, x1, y1, vertices, columnas);
+	}else if(abs(dx)<=abs(dy)){
+	drawLineV(x0, y0, x1, y1, vertices, columnas);
+	}
 	//generarGrilla(columnas, filas, lineVertices);
 	/*
 	GLfloat vertices[] = {
