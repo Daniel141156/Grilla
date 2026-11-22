@@ -26,8 +26,7 @@ const char* fragmentShaderSource = "#version 330 core\n"
 "    FragColor = vec4(ourColor, 1.0f);\n"
 "}\n\0";
 
-struct Vertex//!
-{
+struct Vertex{
 	GLfloat x;
 	GLfloat y;
 	GLfloat z;
@@ -36,14 +35,32 @@ struct Vertex//!
 	GLfloat g;
 	GLfloat b;
 };
-//opciones 2 rectangulo, 1 circulo, 0 linea
-int opciones = 2;
-//clic
-bool primerClic = false;
+//datos rotacion
+struct Punto {
+	float x;
+	float y;
+};
+float angulo= 0.0;
+bool rotar = false;
+bool segundoPunto = false;
+Punto rotarPunto(float x, float y, float cx, float cy, float angulo) {
+	float rad = (angulo * 3.14159265) / 180.0;
+	float dx = x - cx;
+	float dy = y - cy;
 
-int xi=0, xf=0, yi=0, yf=0;
+	return {
+		cx + dx * cos(rad) - dy * sin(rad),
+		cy + dx * sin(rad) + dy * cos(rad)
+	};
+}
 
+int opciones = 0; //opciones 2 rectangulo, 1 circulo, 0 linea
+bool  mostrarMenu = true;
+bool primerClic = false; //clic
 
+int xi=0, xf=0, yi=0, yf=0, x2=0, y2=0;
+
+float colorDibujo[3] = { 0.941f ,0.941f , 0.235f};
 //pintar lineas con bresenham
 void drawLineH(int x0, int y0, int x1, int y1, std::vector<Vertex>& vertices, int columnas) {
 	int aux=0;
@@ -134,12 +151,35 @@ void putPixel(int x, int y, std::vector<Vertex>& vertices, int filas, int column
 	int base = celda * 4;
 	for (int i = 0; i < 4; i++)
 	{
-		vertices[base + i].r = r;
-		vertices[base + i].g = g;
-		vertices[base + i].b = b;
+		vertices[base + i].r = colorDibujo[0];
+		vertices[base + i].g = colorDibujo[1];
+		vertices[base + i].b = colorDibujo[2];
 	}
 }
-
+void borrar(int x, int y, std::vector<Vertex>& vertices, int filas, int columnas) {
+	if (x < 0 || x >= columnas || y < 0 || y >= filas) {
+		return;
+	}
+	int base = (y * columnas + x) * 4;
+	for (int i = 0; i < 4; i++)
+	{
+		vertices[base + i].r = 0.212f;
+		vertices[base + i].g = 0.278f;
+		vertices[base + i].b = 0.463f;
+	}
+}
+void pincel(int x, int y, std::vector<Vertex>& vertices, int filas, int columnas) {
+	if (x < 0 || x >= columnas || y < 0 || y >= filas) {
+		return;
+	}
+	int base = (y * columnas + x) * 4;
+	for (int i = 0; i < 4; i++)
+	{
+		vertices[base + i].r = colorDibujo[0];
+		vertices[base + i].g = colorDibujo[1];
+		vertices[base + i].b = colorDibujo[2];
+	}
+}
 void drawLine(int x0, int y0, int x1, int y1, std::vector<Vertex>& vertices, int columnas, int filas, float r, float g, float b) {
 	int dx = abs(x1 - x0);
 	int dy = abs(y1 - y0);
@@ -179,21 +219,35 @@ void drawLine(int x0, int y0, int x1, int y1, std::vector<Vertex>& vertices, int
 		}
 	}
 }
-/*void putPixwl(int x, int y, std::vector<Vertex>& vertices, int columnas) {
 
-	int celda = y * columnas + x;
-	int base = celda * 4;
+void rotarLinea(int x0, int y0, int x1, int y1, std::vector<Vertex>& vertices, int columnas, int filas, float r, float g, float b, float angulo) {
+	float cx = (x1 + x0) / 2.0 ;
+	float cy = (y1 + y0) / 2.0;
+	Punto p1 = rotarPunto(x0, y0, cx, cy, angulo);
+	Punto p2 = rotarPunto(x1, y1, cx, cy, angulo); 
+	drawLine(p1.x, p1.y, p2.x, p2.y, vertices, columnas, filas, r, g, b);
+}
 
-	for (int i = 0; i < 4; i++)
-	{
-		vertices[base + i].r = 0.941f;
-		vertices[base + i].g = 0.941f;
-		vertices[base + i].b = 0.235f;
+void drawRectangle (int xi, int yi, int xf, int yf,std::vector<Vertex>& vertices, int columnas, int filas, float r, float g, float b, float angulo = 0.0) {
+	float cx = (xi+xf)/2 ;
+	float cy = (yi+yf)/2 ;
+
+	Punto esquinas[4] = {
+	   {(float)xi, (float)yi},
+	   {(float)xf, (float)yi},
+	   {(float)xf, (float)yf},
+	   {(float)xi, (float)yf}
+	};
+	for (int i = 0; i < 4; i++) {
+		esquinas[i] = rotarPunto(esquinas[i].x, esquinas[i].y, cx, cy, angulo);
 	}
-}*/
+	for (int i = 0; i < 4; i++) {
+		int sig = (i + 1) % 4;
 
-void drawRectangle (int xi, int yi, int xf, int yf,std::vector<Vertex>& vertices, int columnas, int filas, float r, float g, float b) {
-	int xMin, yMin, xMax, yMax;
+		drawLine((esquinas[i].x), round(esquinas[i].y), round(esquinas[sig].x), round(esquinas[sig].y), vertices, columnas, filas, r, g, b);
+	}
+	/*int xMin, yMin, xMax, yMax;
+
 	if (xi<xf) {
 		xMin = xi;
 		xMax = xf;
@@ -215,6 +269,7 @@ void drawRectangle (int xi, int yi, int xf, int yf,std::vector<Vertex>& vertices
 	drawLine(xMin, yMax, xMax, yMax, vertices, columnas, filas, r, g, b);//;arr
 	drawLine(xMax, yMax, xMax, yMin, vertices, columnas, filas, r, g, b);//der
 	drawLine(xMin, yMin, xMax, yMin, vertices, columnas, filas, r, g, b);//ab
+	*/
 
 }
 
@@ -242,9 +297,77 @@ void drawCircle(int cx, int cy, int radio, std::vector<Vertex>& vertices, int co
 	}
 }
 
+void relleno(int x, int y, std::vector<Vertex>& vertices, int columnas, int filas, float r, float g, float b) {
+	
+	if (x < 0 || x >= columnas || y < 0 || y >= filas) {
+		return;
+	}
+	int pos = (y * columnas + x) * 4;
+
+	if (pos + 3 >= vertices.size()) {
+		return;
+	}
+
+	
+
+	float rActual = vertices[pos].r;
+	float gActual = vertices[pos].g;
+	float bActual = vertices[pos].b;
+	//se guarda antes de cambiar el valor
+
+	if (rActual == r && gActual == g && bActual == b)
+		return;
+
+	std::vector<std::pair<int, int>> pendientes;//////////////////
+	pendientes.push_back({ x, y });
+
+	while (!pendientes.empty())////
+	{
+		x = pendientes.back().first;
+		y = pendientes.back().second;
+		pendientes.pop_back();
+
+		pos = (y * columnas + x) * 4;
+
+		if (vertices[pos].r == rActual &&vertices[pos].g == gActual &&vertices[pos].b == bActual){
+			putPixel(x, y, vertices, filas, columnas, r, g, b);
+
+			if (x + 1 < columnas) pendientes.push_back({ x + 1, y });
+			if (x - 1 >= 0) pendientes.push_back({ x - 1, y });
+			if (y + 1 < filas) pendientes.push_back({ x, y + 1 });
+			if (y - 1 >= 0) pendientes.push_back({ x, y - 1 });
+		}
+	}
+
+}
+
+void drawTriangle(int x0, int y0, int x1, int y1,int x2, int y2, std::vector<Vertex>& vertices,int columnas, int filas, float r, float g, float b) {
+	drawLine(x0, y0, x1, y1, vertices, columnas, filas, r, g, b);
+	drawLine(x1, y1, x2, y2, vertices, columnas, filas, r, g, b);
+	drawLine(x2, y2, x0, y0, vertices, columnas, filas, r, g, b);
+}
+void rotarTriangulo(int x0, int y0, int x1, int y1,int x2, int y2, std::vector<Vertex>& vertices,int columnas, int filas, float r, float g, float b,float angulo) {
+	float cx = (x0 + x1 + x2) / 3.0f;
+	float cy = (y0 + y1 + y2) / 3.0f;
+	Punto p0 = rotarPunto(x0, y0, cx, cy, angulo);
+	Punto p1 = rotarPunto(x1, y1, cx, cy, angulo);
+	Punto p2 = rotarPunto(x2, y2, cx, cy, angulo);
+	drawTriangle(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, vertices, columnas, filas, r, g, b);
+}
+
+int viewportX = 0;
+int viewportY = 0;
+int viewportSize = 800;
+
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-	glViewport(0, 0, width, height);
+	viewportSize = (width<height)? width:height;
+	//centros
+	viewportX = (width - viewportSize) / 2;
+	viewportY = (height - viewportSize) / 2;
+
+	glViewport(viewportX, viewportY, viewportSize, viewportSize);
 }
 int main() {
 	glfwInit();
@@ -290,8 +413,8 @@ int main() {
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
 
-	int columnas = 40;
-	int filas = 40;
+	int columnas = 60;
+	int filas = 60;
 
 	std::vector<Vertex> vertices;//!
 	std::vector<GLuint> indices;//!
@@ -328,6 +451,7 @@ int main() {
 			indices.push_back(base + 3);
 		}
 	}
+	std::vector<Vertex> verticesOriginales = vertices;//copia de la cuadricula
 	//int cx=20, cy=20, r=19;
 	
 	//drawCircle(cx, cy, r, vertices, columnas, filas);
@@ -389,40 +513,105 @@ int main() {
 		glfwPollEvents();
 		//detecta el clic del mouse
 		bool clic = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
-		if (clic && !clicMouse && !ImGui::GetIO().WantCaptureMouse) {
+		//borrador
+		if ((opciones == 4 || opciones == 6 ) && clic && !ImGui::GetIO().WantCaptureMouse) {
+			double mouseX, mouseY;
+			glfwGetCursorPos(window, &mouseX, &mouseY);
+			int celdaX = (int)((mouseX - viewportX) * columnas / viewportSize);
+			int celdaY = (int)((mouseY - viewportY) * filas / viewportSize);
+
+			if (celdaX >= 0 && celdaX < columnas &&
+				celdaY >= 0 && celdaY < filas) {
+				if (opciones == 4 ) {
+				borrar(celdaX, celdaY, vertices, filas, columnas);
+			}
+			else if (opciones == 6 ) {
+			pincel(celdaX, celdaY, vertices, filas, columnas);
+			}
+			verticesOriginales = vertices;
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(Vertex), vertices.data());
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		}
+		}
+
+
+		//herramientas clic
+		if (clic && !clicMouse && !ImGui::GetIO().WantCaptureMouse && opciones != 4 && opciones != 6) {
 			double mouseX, mouseY;
 			glfwGetCursorPos(window, &mouseX, &mouseY);
 		//conversion
-		int celdaX = (int)(mouseX / (800.0/columnas));
-		int celdaY = (int)(mouseY / (800.0/filas));
-		if(!primerClic){
-			xi = celdaX;
-			yi = celdaY;
-			primerClic = true;
-			std::cout << "Primer Clic: " << xi << ", " << yi << std::endl;
+		int celdaX = (int)((mouseX - viewportX) * columnas/viewportSize);
+		int celdaY = (int)((mouseY - viewportY) * filas /viewportSize);
+
+		if (celdaX < 0 || celdaX >= columnas ||celdaY < 0 || celdaY >= filas) {
+			clicMouse = clic;
+			continue;
 		}
-		else {
+		if (opciones == 3) {
+			relleno(celdaX, celdaY, vertices, columnas, filas, colorDibujo[0], colorDibujo[1], colorDibujo[2]);
+			verticesOriginales = vertices;//cambia el fondo de la grilla original
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferSubData(GL_ARRAY_BUFFER, 0,vertices.size() * sizeof(Vertex), vertices.data());
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+		}
+		else if (segundoPunto) {
+			x2 = celdaX;
+			y2 = celdaY;
+			segundoPunto = false;
+			rotar = true;
+			angulo = 0.0f;
+		}
+		else if (primerClic) {
 			xf = celdaX;
 			yf = celdaY;
 			primerClic = false;
-			std::cout << "Segundo Clic: " << xf << ", "<< yf << std::endl;
-			if (opciones == 0) {
-				drawLine(xi, yi, xf, yf, vertices, columnas, filas, 0.941f, 0.941f, 0.235f);
+			if (opciones == 5) {
+				segundoPunto = true;
 			}
-			else if (opciones == 1) {
+			else if (opciones ==1 ) {
 				int dx = xf - xi;
 				int dy = yf - yi;
 				int radio = (int)(std::round(std::sqrt((dx * dx) + (dy * dy))));
 				drawCircle(xi, yi, radio, vertices, columnas, filas, 0.941f, 0.941f, 0.235f);
+				verticesOriginales = vertices;
+				glBindBuffer(GL_ARRAY_BUFFER, VBO);
+				glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(Vertex), vertices.data());
+				glBindBuffer(GL_ARRAY_BUFFER, 0);
+			}
+			else {
+				rotar = true;
+				angulo = 0.0;
+			}
+		}
+		else if(rotar){
+			rotar = false;
+			vertices = verticesOriginales;
+
+			if (opciones == 0) {
+				rotarLinea(xi, yi, xf, yf, vertices, columnas, filas, colorDibujo[0], colorDibujo[1], colorDibujo[2], angulo);
 			}
 			else if (opciones == 2) {
-				drawRectangle(xi, yi, xf, yf, vertices, columnas, filas, 0.941f, 0.941f, 0.235f);
+				drawRectangle(xi, yi, xf, yf, vertices, columnas, filas, 0.941f, 0.941f, 0.235f,angulo);
 			}
-			glBindBuffer(GL_ARRAY_BUFFER, VBO);
-			glBufferSubData(GL_ARRAY_BUFFER,0,vertices.size() * sizeof(Vertex),vertices.data());
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			else if (opciones == 5) {
+				rotarTriangulo(xi, yi, xf, yf, x2, y2, vertices, columnas, filas, 0.941f, 0.941f, 0.235f, angulo);
+			}
+			verticesOriginales = vertices;
+
 		}
+		else {
+			// Primer clic
+			xi = celdaX;
+			yi = celdaY;
+			primerClic = true;
 		}
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(Vertex), vertices.data());
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		}
+		
 		clicMouse = clic;
 
 		//Inicia nuevo frame de ImGui
@@ -432,54 +621,146 @@ int main() {
 
 		//propiedades
 		ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2(800,75), ImGuiCond_Always);
-
-
+		ImGuiWindowFlags flag = ImGuiWindowFlags_NoScrollbar;
+		if (!rotar) {
+			ImGui::SetNextWindowSize(ImVec2(650, 75), ImGuiCond_Always);
+		}
+		else if (rotar) {
+			ImGui::SetNextWindowSize(ImVec2(650, 150), ImGuiCond_Always);
+		}
 		//Crea ventana de ImGui
-		ImGui::Begin("Herramientas");
-
-		ImGui::Text("Seleccionar herramienta:");
+		if (mostrarMenu) {
+			ImGui::Begin("Herramientas", nullptr, flag);
+			ImGui::SameLine();
+			if (ImGui::Button("Linea"))
+			{
+				opciones = 0;
+				primerClic = false;
+				segundoPunto = false;
+				rotar = false;
+			}ImGui::SameLine();
+			if (ImGui::Button("Circulo"))
+			{
+				opciones = 1;
+				primerClic = false;
+				segundoPunto = false;
+				rotar = false;
+			}ImGui::SameLine();
+			if (ImGui::Button("Rectangulo"))
+			{
+				opciones = 2;
+				primerClic = false;
+				segundoPunto = false;
+				rotar = false;
+			}ImGui::SameLine();
+			if (ImGui::Button("Rellenar"))
+			{
+				opciones = 3;
+				primerClic = false;
+				segundoPunto = false;
+				rotar = false;
+			}ImGui::SameLine();
+			if (ImGui::Button("Borrador"))
+			{
+				opciones = 4;
+				primerClic = false;
+				segundoPunto = false;
+				rotar = false;
+			}ImGui::SameLine();
+			if (ImGui::Button("Triángulo"))
+			{
+				opciones = 5;
+				primerClic = false;
+				segundoPunto = false;
+				rotar = false;
+			}ImGui::SameLine();
+			if (ImGui::Button("Pincel"))
+			{
+				opciones = 6;
+				primerClic = false;
+				segundoPunto = false;
+				rotar = false;
+			}
+			ImGui::Separator();
+			ImGui::Text("Herramienta actual: ");
+			ImGui::SameLine();
+			if (opciones == 0) {
+				ImGui::Text("Línea");
+			}
+			else if (opciones == 1) {
+				ImGui::Text("Círculo");
+			}
+			else if (opciones == 2) {
+				ImGui::Text("Rectángulo");
+			}
+			else if (opciones == 3) {
+				ImGui::Text("Rellenar");
+			}
+			else if (opciones == 4) {
+				ImGui::Text("Borrador");
+			}
+			else if (opciones == 5) {
+				ImGui::Text("Triángulo");
+			}
+			else if (opciones == 6) {
+				ImGui::Text("Pincel");
+			}
+			if (rotar && (opciones == 0 || opciones == 2 || opciones == 5)) {
+				ImGui::Separator();
+				ImGui::Text("Rotación: ");
+				ImGui::SliderFloat("Ángulo", &angulo, 0.0, 360.0);
+				ImGui::Text("Click en la grilla para confirmar.");
+			}
+			ImGui::End();
+			ImGui::SetNextWindowPos(ImVec2(650, 0), ImGuiCond_Always);
+			ImGui::SetNextWindowSize(ImVec2(150, 75), ImGuiCond_Always);
+			ImGui::Begin("Color", nullptr, flag);
+			ImGui::Text("Seleccionar Color:");
+			ImGui::Separator();
+			ImGui::ColorEdit3("", colorDibujo);
+			ImGui::End();
+		}
+		float ancho = 125.0;
+		float alto = 35.0 ;
+		float posX = viewportX + (viewportSize - ancho) / 2.0;
+		float posY = viewportY + viewportSize - alto;
+		ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(ancho, alto), ImGuiCond_Always);
+		ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar;
+		ImGui::Begin("Opciones adicionales", nullptr, flags);
+		if (mostrarMenu == true) {
+			if (ImGui::Button("Ocultar")) {
+				mostrarMenu = false;
+			}
+		}
+		else if (mostrarMenu == false) {
+			if (ImGui::Button("Mostrar")) {
+				mostrarMenu = true;
+			}
+		}
 		ImGui::SameLine();
-		if (ImGui::Button("Linea"))
-		{
-			opciones = 0;
-		}ImGui::SameLine();
-		if (ImGui::Button("Circulo"))
-		{
-			opciones = 1;
-		}ImGui::SameLine();
-		if (ImGui::Button("Rectangulo"))
-		{
-			opciones = 2;
-		}ImGui::SameLine();
-		if (ImGui::Button("Rellenar"))
-		{
-			opciones = 3;
-		}ImGui::SameLine();
-		if (ImGui::Button("Borrador"))
-		{
-			opciones = 4;
-		}
-		ImGui::Separator();
-		ImGui::Text("Herramienta actual:");
-		ImGui::SameLine();
-		if (opciones == 0) {
-			ImGui::Text("Línea");
-		}else if (opciones == 1) {
-			ImGui::Text("Círculo");
-		}
-		else if (opciones == 2) {
-			ImGui::Text("Rectángulo");
-		}
-		else if (opciones == 3) {
-			ImGui::Text("Rellenar");
-		}
-		else if (opciones == 4) {
-			ImGui::Text("Borrador");
+		if (ImGui::Button("salir")) {
+			glfwSetWindowShouldClose(window, true);
 		}
 		ImGui::End();
-
 		//Dibuja escena OpenGL
+		if (rotar && (opciones == 0 || opciones == 2 || opciones == 5 )) {
+			vertices = verticesOriginales;
+			if (opciones == 0) {
+				rotarLinea(xi, yi, xf, yf,vertices, columnas, filas,colorDibujo[0], colorDibujo[1],colorDibujo[2], angulo);
+
+			}
+			else if (opciones==2) {
+				drawRectangle(xi, yi, xf, yf, vertices, columnas, filas, colorDibujo[0], colorDibujo[1], colorDibujo[2], angulo);
+			}
+			else if (opciones == 5) {
+				rotarTriangulo(xi, yi, xf, yf, x2, y2, vertices, columnas, filas, colorDibujo[0], colorDibujo[1], colorDibujo[2], angulo);
+			}
+				glBindBuffer(GL_ARRAY_BUFFER, VBO);
+				glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(Vertex), vertices.data());
+				glBindBuffer(GL_ARRAY_BUFFER, 0);
+			
+		}
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		glUseProgram(shaderProgram);
@@ -492,6 +773,9 @@ int main() {
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		glfwSwapBuffers(window);
 	}
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
 	glDeleteBuffers(1, &EBO);
