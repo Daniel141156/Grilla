@@ -18,24 +18,22 @@ Es un programa de dibujo que permite usar figuras geométricas y rotarlas, usand
 - Herramienta de borrador y pincel.
 - Rotación de figuras mediante un control de ángulo.
 - Selección de colores.
-## Estructura
+## Estructura del proyecto
+
+```text
 Grilla/
-│
 ├── Grilla/
-│   ├── external/
-│   │   └── imgui/
-│   │
-│   └── main.cpp
-│
+│ ├── external/
+│ │ └── imgui/
+│ └── main.cpp
 ├── librerias/
-│   ├── include/
-│   └── lib/
-│
+│ ├── include/
+│ └── lib/
 ├── glad.c
-│
 ├── .gitattributes
 ├── .gitignore
 └── README.md
+```
 
 ## Arquitectura del programa
 
